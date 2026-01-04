@@ -23,5 +23,5 @@ package = true
 package-dir = {"" = "src"}
 
 [project.scripts]
-audio-paste = "audio_paste.main:main"
+audio-paste = "main:main"
 
