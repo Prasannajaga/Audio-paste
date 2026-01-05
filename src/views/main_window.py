@@ -188,6 +188,7 @@ class MainWindow(QWidget):
         def worker():
             try:
                 text = self.transcription_service.transcribe(audio)
+                print("FInal:", text)
                 if text:
                     self._paste_text(text)
             finally:

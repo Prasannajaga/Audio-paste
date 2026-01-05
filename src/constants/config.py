@@ -11,4 +11,4 @@ MODEL_SIZE = "tiny.en"
 
 # Silence detection
 SILENCE_THRESHOLD = 0.01   # RMS threshold
-SILENCE_SECONDS = 4.0      # Stop after 4s silence
+SILENCE_SECONDS = 3.0      # Stop after 4s silence
