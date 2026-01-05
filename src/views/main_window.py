@@ -168,7 +168,7 @@ class MainWindow(QWidget):
     def _on_silence_detected(self):
         if self.audio_service.is_recording:
             self.audio_service.stop_recording()
-            QTimer.singleShot(0, self._finalize_transcription)
+            self._finalize_transcription()
 
     def _finalize_transcription(self):
         if self._finalizing:
