@@ -6,8 +6,7 @@ from PyQt6.QtWidgets import (
     QComboBox, QSpinBox, QGroupBox, QGridLayout, QFrame, QMessageBox
 )
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QFont , QShortcut, QKeySequence 
-from evdev import ecodes as e, UInput
+from PyQt6.QtGui import QFont , QShortcut, QKeySequence  
 from services.audio_service import AudioService
 from services.transcription_service import (
     TranscriptionService,
@@ -16,19 +15,18 @@ from services.transcription_service import (
 from services.config_manager import ConfigManager
 from views.signals import Signals
 from views.styles import DARK_THEME, STATUS_COLORS 
+from pynput.keyboard import Key, Controller
+from pynput import keyboard
+import platform
+
 class MainWindow(QWidget):
 
     def __init__(self):
         super().__init__()
 
         self.config_manager = ConfigManager()
-        self._finalizing = False
-
-        try:
-            self.ui = UInput()
-        except Exception as err:
-            print(f"UInput error: {err}")
-            self.ui = None
+        self._finalizing = False 
+        self.keyboardController = Controller()
 
         self._setup_ui() 
         self._setup_signals()
@@ -114,10 +112,19 @@ class MainWindow(QWidget):
         self.signals.status.connect(self._update_status)      
 
     def _setup_shortcuts(self):
-        # 1. Local Shortcut (when window is focused)
+        # 1. Local Shortcut (UI Thread)
         self.qt_shortcut = QShortcut(QKeySequence("Ctrl+Alt+R"), self)
-        self.qt_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
         self.qt_shortcut.activated.connect(self.toggle_recording) 
+
+        # 2. Global Shortcut (Background Thread)
+        # We use QTimer.singleShot to ensure the UI update happens on the Main Thread
+        def trigger():
+            QTimer.singleShot(0, self.toggle_recording)
+
+        self.global_listener = keyboard.GlobalHotKeys({
+            '<ctrl>+<alt>+r': trigger
+        })
+        self.global_listener.start() 
 
 
     def _setup_services(self):
@@ -172,9 +179,9 @@ class MainWindow(QWidget):
 
     def _finalize_transcription(self):
         if self._finalizing:
-            return
-
+            return 
         self._finalizing = True
+        self.showMinimized()
         audio = self.audio_service.get_audio_data()
 
         if audio is None or len(audio) == 0:
@@ -188,7 +195,6 @@ class MainWindow(QWidget):
         def worker():
             try:
                 text = self.transcription_service.transcribe(audio)
-                print("FInal:", text)
                 if text:
                     self._paste_text(text)
             finally:
@@ -199,20 +205,21 @@ class MainWindow(QWidget):
  
 
     def _paste_text(self, text):
-        print("Final:", text)
-        if not self.ui:
-            print("Not UI")
-            return
+        print("Final Text:", text)
+        if not text:
+            return 
+        
+        pyperclip.copy(text) 
+        time.sleep(0.5)   
 
-        pyperclip.copy(text)
-        time.sleep(0.2)
-
-        self.ui.write(e.EV_KEY, e.KEY_LEFTCTRL, 1)
-        self.ui.write(e.EV_KEY, e.KEY_V, 1)
-        self.ui.syn()
-        self.ui.write(e.EV_KEY, e.KEY_V, 0)
-        self.ui.write(e.EV_KEY, e.KEY_LEFTCTRL, 0)
-        self.ui.syn()
+        modifier = Key.cmd if platform.system() == "Darwin" else Key.ctrl 
+        
+        try: 
+            self.keyboardController.type(text) 
+            print(f"Pasted: {text[:20]}...")  
+        except Exception as e:
+            print(f"Paste failed, falling back to typing: {e}")
+            self.keyboardController.type(text)
  
 
     def _apply_config(self):

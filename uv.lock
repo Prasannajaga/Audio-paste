@@ -20,7 +20,6 @@ name = "audio-paste"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "evdev" },
     { name = "faster-whisper" },
     { name = "numpy" },
     { name = "pynput" },
@@ -33,7 +32,6 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "evdev", specifier = ">=1.9.2" },
     { name = "faster-whisper", specifier = ">=1.2.1" },
     { name = "numpy", specifier = ">=2.4.0" },
     { name = "pynput", specifier = ">=1.8.1" },
