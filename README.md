@@ -11,7 +11,6 @@
 this project is inspired from superWhisper and paraspeech, developed soley by me to understand how things work under the hood, using the faster-whisper sdk which provides the openAI whisper speech to text model in many varieites, built with the pyQt python GUI framework to fully utilize the faster-whisper sdk or any custom model
 
 I am currently working on, the app is still in the development phase but the core functionality is working as expected, and I might switch to Tauri later since it supports better cross pplatform
----
 
 ## 🎙️ Usage
 
