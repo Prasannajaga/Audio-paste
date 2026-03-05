@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+.vscode/extensions.json
+audio.aac
+latex.txt

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Audio Paste</title>
+</head>
+
+<body>
+  <div id="app">
+
+    <div id="wave-area">
+      <div id="wave" class="wave">
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <p id="status-text">Tap to listen</p>
+    </div>
+
+    <div id="transcript" class="transcript"></div>
+
+    <div class="bottom-bar">
+      <span id="hotkey" class="hotkey">Ctrl+Alt+R</span>
+      <button id="settings-btn" class="settings-btn">Settings</button>
+    </div>
+
+  </div>
+
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-head">
+        <span class="modal-title">Settings</span>
+        <button id="modal-close" class="modal-x">&times;</button>
+      </div>
+
+      <div class="modal-section">
+        <span class="section-label">Model</span>
+        <div id="model-chips" class="chip-group">
+          <button class="chip" data-value="tiny.en">Tiny</button>
+          <button class="chip active" data-value="base.en">Base</button>
+          <button class="chip" data-value="small.en">Small</button>
+          <button class="chip" data-value="medium.en">Medium</button>
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <div class="thread-row">
+          <span class="section-label">CPU Threads</span>
+          <div class="stepper">
+            <button id="thread-dec" class="step-btn">&minus;</button>
+            <span id="thread-val" class="step-val">4</span>
+            <button id="thread-inc" class="step-btn">+</button>
+          </div>
+        </div>
+      </div>
+
+      <button id="apply-btn" class="modal-apply">Apply</button>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+
+</html>
