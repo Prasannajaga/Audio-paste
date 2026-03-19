@@ -39,6 +39,25 @@ fn wl_copy(text: &str) -> Result<(), String> {
 }
 
 #[cfg(target_os = "linux")]
+fn wtype_ctrl_v() -> Result<(), String> {
+    let out = Command::new("wtype")
+        .arg("-M").arg("ctrl")
+        .arg("v")
+        .arg("-m").arg("ctrl")
+        .output()
+        .map_err(|e| format!("wtype exec: {}. Install: sudo apt install wtype", e))?;
+    if out.status.success() {
+        eprintln!("[audio-paste] wtype Ctrl+V sent");
+        return Ok(());
+    }
+    Err(format!(
+        "wtype exited with {} stderr={}",
+        out.status,
+        String::from_utf8_lossy(&out.stderr)
+    ))
+}
+
+#[cfg(target_os = "linux")]
 fn uinput_ctrl_v() -> Result<(), String> {
     use evdev::uinput::VirtualDeviceBuilder;
     use evdev::{AttributeSet, EventType, InputEvent, Key};
@@ -141,10 +160,13 @@ fn wayland_paste(text: &str) -> Result<(), String> {
 
     thread::sleep(Duration::from_millis(100));
 
-    // Step 2: Simulate Ctrl+V via uinput
-    match uinput_ctrl_v() {
-        Ok(_) => return Ok(()),
-        Err(e) => eprintln!("[audio-paste] uinput failed: {}", e),
+    // Step 2: Simulate Ctrl+V with tools that don't require /dev/uinput first.
+    if check_tool("wtype") {
+        eprintln!("[audio-paste] Trying wtype key ctrl+v");
+        match wtype_ctrl_v() {
+            Ok(_) => return Ok(()),
+            Err(e) => eprintln!("[audio-paste] wtype failed: {}", e),
+        }
     }
 
     // Fallback: ydotool
@@ -159,6 +181,12 @@ fn wayland_paste(text: &str) -> Result<(), String> {
         }
     }
 
+    // Fallback: uinput (may require extra permissions)
+    match uinput_ctrl_v() {
+        Ok(_) => return Ok(()),
+        Err(e) => eprintln!("[audio-paste] uinput failed: {}", e),
+    }
+
     // Fallback: xdotool via XWayland
     if check_tool("xdotool") {
         eprintln!("[audio-paste] Trying xdotool key ctrl+v");
@@ -169,7 +197,7 @@ fn wayland_paste(text: &str) -> Result<(), String> {
         }
     }
 
-    Err("Ctrl+V simulation failed. Clipboard is set — paste manually with Ctrl+V.".into())
+    Err("Ctrl+V simulation failed. Clipboard is set. For Wayland, install wtype or configure /dev/uinput access.".into())
 }
 
 #[cfg(target_os = "linux")]

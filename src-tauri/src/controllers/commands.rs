@@ -30,7 +30,7 @@ pub fn stop_recording(state: State<'_, AppState>) -> Result<(), String> {
 #[tauri::command]
 pub async fn process_transcription(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<String, String> {
     let t0 = Instant::now();
-    eprintln!("[audio-paste] process_transcription called");
+    eprintln!("[audio-paste][pipeline] process_transcription start");
 
     let (audio_data, config) = {
         let service = state.inner().audio_service.lock()
@@ -44,39 +44,46 @@ pub async fn process_transcription(app: tauri::AppHandle, state: State<'_, AppSt
     };
 
     if audio_data.is_empty() {
-        eprintln!("[audio-paste] No audio data, skipping");
+        eprintln!("[audio-paste][pipeline] no audio data, skipping transcription");
         let _ = app.emit("status_change", "IDLE");
         return Ok(String::new());
     }
 
-    eprintln!("[audio-paste] Audio: {} samples ({:.1}s at 16kHz)",
+    eprintln!("[audio-paste][pipeline] captured_audio={} samples ({:.2}s at 16kHz)",
         audio_data.len(), audio_data.len() as f32 / 16000.0);
 
     let trimmed = AudioService::trim_silence(&audio_data, crate::constants::config::SILENCE_THRESHOLD);
-    eprintln!("[audio-paste] Trimmed: {} samples ({:.1}s)",
+    eprintln!("[audio-paste][pipeline] trimmed_audio={} samples ({:.2}s)",
         trimmed.len(), trimmed.len() as f32 / 16000.0);
 
     if trimmed.is_empty() {
+        eprintln!("[audio-paste][pipeline] trimmed audio is empty, returning IDLE");
         let _ = app.emit("status_change", "IDLE");
         return Ok(String::new());
     }
 
     let tmp_wav = AudioService::write_temp_wav(&trimmed)?;
+    eprintln!("[audio-paste][pipeline] temp_wav={}", tmp_wav);
 
     let t1 = Instant::now();
     let text = transcription_service::transcribe(&config, &tmp_wav)?;
     let transcribe_ms = t1.elapsed().as_millis();
-    eprintln!("[audio-paste] Transcription took {}ms: {:?}", transcribe_ms, text);
+    eprintln!("[audio-paste][pipeline] transcription_complete in {}ms text_len={}", transcribe_ms, text.len());
 
-    let _ = std::fs::remove_file(&tmp_wav);
+    if let Err(e) = std::fs::remove_file(&tmp_wav) {
+        eprintln!("[audio-paste][pipeline] temp_wav cleanup failed for {}: {}", tmp_wav, e);
+    }
 
     if !text.trim().is_empty() {
+        eprintln!("[audio-paste][pipeline] transcription non-empty -> emit + clipboard paste");
         let _ = app.emit("transcription_result", text.clone());
         clipboard_service::paste_text(&text);
+    } else {
+        eprintln!("[audio-paste][pipeline] transcription empty");
     }
 
     let total_ms = t0.elapsed().as_millis();
-    eprintln!("[audio-paste] Total pipeline: {}ms", total_ms);
+    eprintln!("[audio-paste][pipeline] done in {}ms", total_ms);
 
     let _ = app.emit("status_change", "IDLE");
     Ok(text)

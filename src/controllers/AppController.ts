@@ -30,7 +30,7 @@ export class AppController {
         });
 
         this.view.setStatus("IDLE");
-        ApiService.applyConfig("base.en", "cpu", 4).catch((e) => {
+        ApiService.applyConfig("tiny.en", "cpu", 4).catch((e) => {
             console.error("[AppController] Failed to apply initial config:", e);
         });
     }
@@ -39,10 +39,18 @@ export class AppController {
         console.debug("[AppController] toggleRecording, isRecording:", this.isRecording);
         try {
             if (this.isRecording) {
+                if (this.isFinalizing) return;
+                this.isFinalizing = true;
                 await ApiService.stopRecording();
                 this.isRecording = false;
-                this.isFinalizing = false;
+                this.view.setStatus("TRANSCRIBING");
+                const text = await ApiService.processTranscription();
+                if (text.trim()) {
+                    this.view.showTranscription(text);
+                    this.view.playDone();
+                }
                 this.view.setStatus("IDLE");
+                this.isFinalizing = false;
             } else {
                 this.view.playTick();
                 await ApiService.startRecording();
@@ -59,14 +67,15 @@ export class AppController {
     }
 
     private async handleSilence() {
-        console.debug("[AppController] handleSilence, isFinalizing:", this.isFinalizing);
-        if (this.isFinalizing) return;
+        console.debug("[AppController] handleSilence, isRecording:", this.isRecording, "isFinalizing:", this.isFinalizing);
+        if (this.isFinalizing || !this.isRecording) return;
         this.isFinalizing = true;
         this.isRecording = false;
 
         this.view.setStatus("TRANSCRIBING");
 
         try {
+            await ApiService.stopRecording();
             const text = await ApiService.processTranscription();
             if (text.trim()) {
                 this.view.showTranscription(text);
