@@ -132,17 +132,7 @@ Example user config:
 ```
 
 ## Setup
-
-### Linux (Run)
-
-```bash
-npm install
-cd src-tauri/whisper.cpp
-cmake -S . -B build
-cmake --build build --config Release -j"$(nproc)"
-cd ../..
-npx tauri dev
-```
+ 
 
 ### Linux (Build)
 
@@ -155,17 +145,7 @@ cd ../..
 npm run build
 npx tauri build
 ```
-
-### macOS (Run)
-
-```bash
-npm install
-cd src-tauri/whisper.cpp
-cmake -S . -B build
-cmake --build build --config Release -j"$(sysctl -n hw.ncpu)"
-cd ../..
-npx tauri dev
-```
+ 
 
 ### macOS (Build)
 
@@ -177,17 +157,6 @@ cmake --build build --config Release -j"$(sysctl -n hw.ncpu)"
 cd ../..
 npm run build
 npx tauri build
-```
-
-### Windows (Run) (PowerShell)
-
-```powershell
-npm install
-cd src-tauri/whisper.cpp
-cmake -S . -B build
-cmake --build build --config Release
-cd ../..
-npx tauri dev
 ```
 
 ### Windows (Build) (PowerShell)
