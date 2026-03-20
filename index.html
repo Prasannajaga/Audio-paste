@@ -15,9 +15,22 @@
         <span></span><span></span><span></span><span></span><span></span>
       </div>
       <p id="status-text">Tap to listen</p>
+      <div id="status-progress" class="status-progress hidden" aria-hidden="true">
+        <div class="status-progress-bar"></div>
+      </div>
     </div>
 
-    <div id="transcript" class="transcript"></div>
+    <div id="transcript-wrap" class="transcript-wrap">
+      <div class="transcript-card">
+        <div class="transcript-head">
+          <span class="transcript-label">Transcription</span>
+          <button id="copy-transcript-btn" class="copy-btn" type="button" aria-label="Copy transcription text">
+            <span class="copy-btn-icon" aria-hidden="true">⧉</span>
+          </button>
+        </div>
+        <div id="transcript" class="transcript"></div>
+      </div>
+    </div>
 
     <div class="bottom-bar">
       <span id="hotkey" class="hotkey">Ctrl+Alt+R</span>
@@ -36,10 +49,8 @@
       <div class="modal-section">
         <span class="section-label">Model</span>
         <div id="model-chips" class="chip-group">
-          <button class="chip" data-value="tiny.en">Tiny</button>
-          <button class="chip active" data-value="base.en">Base</button>
-          <button class="chip" data-value="small.en">Small</button>
-          <button class="chip" data-value="medium.en">Medium</button>
+          <button class="chip" data-value="tiny">Tiny</button>
+          <button class="chip active" data-value="base">Base</button>
         </div>
       </div>
 
@@ -51,6 +62,29 @@
             <span id="thread-val" class="step-val">4</span>
             <button id="thread-inc" class="step-btn">+</button>
           </div>
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <span class="section-label">Audio Tuning</span>
+        <div class="tuning-grid">
+          <label class="setting-card">
+            <div class="setting-top">
+              <span class="setting-name">Silence Threshold</span>
+              <span class="setting-chip">Noise gate</span>
+            </div>
+            <input id="silence-threshold" class="setting-input" type="number" min="0.001" max="1" step="0.001" value="0.01" />
+            <small class="setting-help">Lower values make the detector more sensitive to quiet speech. Raise it if background noise is triggering false starts.</small>
+          </label>
+
+          <label class="setting-card">
+            <div class="setting-top">
+              <span class="setting-name">Silence Seconds</span>
+              <span class="setting-chip">Pause window</span>
+            </div>
+            <input id="silence-seconds" class="setting-input" type="number" min="1" max="10" step="1" value="2" />
+            <small class="setting-help">Higher values let you pause briefly and keep talking without the recording ending too early.</small>
+          </label>
         </div>
       </div>
 

@@ -12,9 +12,15 @@ export class ApiService {
         await invoke("stop_recording");
     }
 
-    static async applyConfig(model: string, device: string, threads: number): Promise<void> {
-        console.debug("[ApiService] invoking apply_config:", { model, device, threads });
-        await invoke("apply_config", { model, device, threads });
+    static async applyConfig(
+        model: string,
+        device: string,
+        threads: number,
+        silenceThreshold: number,
+        silenceSeconds: number
+    ): Promise<void> {
+        console.debug("[ApiService] invoking apply_config:", { model, device, threads, silenceThreshold, silenceSeconds });
+        await invoke("apply_config", { model, device, threads, silenceThreshold, silenceSeconds });
     }
 
     static async processTranscription(): Promise<string> {

@@ -3,11 +3,10 @@ pub mod constants;
 pub mod controllers;
 pub mod services;
 
-use std::sync::Mutex;
+use std::sync::RwLock;
 use tauri::Emitter;
 
 use crate::config::env::GLOBAL_CONFIG;
-use crate::config::whisper_config::WhisperConfig;
 use crate::services::audio_service::AudioService;
 use crate::controllers::commands::{AppState, start_recording, stop_recording, process_transcription, apply_config};
 
@@ -23,21 +22,17 @@ fn is_wayland() -> bool {
 pub fn run() {
     let _cfg = GLOBAL_CONFIG.environment.clone();
 
-    let root = WhisperConfig::resolve_project_root()
-        .expect("CRITICAL: Could not resolve project root");
-    eprintln!("[audio-paste] Project root: {:?}", root);
-
-    let initial_whisper = WhisperConfig::new(root, &GLOBAL_CONFIG.model_size, GLOBAL_CONFIG.cpu_threads)
-        .expect("CRITICAL: Failed to initialize WhisperConfig");
-    eprintln!("[audio-paste] WhisperConfig initialized: {:?}", initial_whisper.cli_path);
-
-    let mut audio_svc = AudioService::new();
+    let mut audio_svc = AudioService::new(GLOBAL_CONFIG.clone());
     let (tx, rx) = std::sync::mpsc::channel();
-    audio_svc.start_listening(tx).expect("Failed to start audio listening capture");
+    if let Err(err) = audio_svc.start_listening(tx) {
+        eprintln!("[audio-paste] Audio capture unavailable: {}", err);
+    } else {
+        eprintln!("[audio-paste] Audio capture started");
+    }
 
     let app_state = AppState {
-        audio_service: Mutex::new(audio_svc),
-        whisper_config: Mutex::new(Some(initial_whisper)),
+        audio_service: audio_svc,
+        whisper_config: RwLock::new(None),
     };
 
     let mut builder = tauri::Builder::default()

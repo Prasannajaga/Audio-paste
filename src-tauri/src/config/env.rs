@@ -15,6 +15,9 @@ pub struct AppConfig {
     pub model_size: String,
     pub device: String,
     pub cpu_threads: usize,
+    pub sample_rate: u32,
+    pub silence_threshold: f32,
+    pub silence_seconds: u64,
 }
 
 lazy_static::lazy_static! {
@@ -30,6 +33,9 @@ fn load_configuration() -> AppConfig {
         model_size: crate::constants::config::WHISPER_DEFAULT_MODEL.to_string(),
         device: crate::constants::config::WHISPER_DEFAULT_DEVICE.to_string(),
         cpu_threads: crate::constants::config::WHISPER_DEFAULT_THREADS,
+        sample_rate: crate::constants::config::SAMPLE_RATE,
+        silence_threshold: crate::constants::config::SILENCE_THRESHOLD,
+        silence_seconds: crate::constants::config::SILENCE_SECONDS,
     };
 
     // 2. Environment Selection (Explicit & Deterministic)
@@ -71,6 +77,15 @@ fn load_configuration() -> AppConfig {
             if let Some(t) = user_overrides.get("cpu_threads").and_then(|v| v.as_u64()) {
                 config.cpu_threads = t as usize;
             }
+            if let Some(sr) = user_overrides.get("sample_rate").and_then(|v| v.as_u64()) {
+                config.sample_rate = sr as u32;
+            }
+            if let Some(th) = user_overrides.get("silence_threshold").and_then(|v| v.as_f64()) {
+                config.silence_threshold = th as f32;
+            }
+            if let Some(ss) = user_overrides.get("silence_seconds").and_then(|v| v.as_u64()) {
+                config.silence_seconds = ss;
+            }
         }
     }
 
@@ -84,5 +99,14 @@ fn validate_config(config: &AppConfig) {
     }
     if config.cpu_threads < 1 || config.cpu_threads > 16 {
         panic!("CRITICAL: CPU threads must be between 1 and 16. Got {}", config.cpu_threads);
+    }
+    if config.sample_rate < 8000 || config.sample_rate > 48000 {
+        panic!("CRITICAL: Sample rate must be between 8000 and 48000. Got {}", config.sample_rate);
+    }
+    if !(config.silence_threshold > 0.0 && config.silence_threshold <= 1.0) {
+        panic!("CRITICAL: Silence threshold must be between 0 and 1. Got {}", config.silence_threshold);
+    }
+    if config.silence_seconds < 1 || config.silence_seconds > 10 {
+        panic!("CRITICAL: Silence seconds must be between 1 and 10. Got {}", config.silence_seconds);
     }
 }
