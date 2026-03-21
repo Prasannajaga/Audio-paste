@@ -31,7 +31,11 @@
     "active": true,
     "targets": ["deb", "rpm"],
     "resources": [
-      "whisper.cpp/build/bin/whisper-cli"
+      "whisper.cpp/build/bin/whisper-cli",
+      "whisper.cpp/build/src/libwhisper.so.1",
+      "whisper.cpp/build/ggml/src/libggml.so.0",
+      "whisper.cpp/build/ggml/src/libggml-base.so.0",
+      "whisper.cpp/build/ggml/src/libggml-cpu.so.0"
     ],
     "icon": [
       "icons/32x32.png",

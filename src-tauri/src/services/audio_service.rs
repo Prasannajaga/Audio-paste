@@ -260,42 +260,15 @@ impl AudioService {
 
     pub fn get_and_clear_audio(&self) -> Vec<f32> {
         let mut state = self.state.lock().unwrap();
-        let buf = state.audio_buffer.clone();
-        state.audio_buffer.clear();
-        buf
+        std::mem::take(&mut state.audio_buffer)
     }
 
     pub fn take_audio_buffer(&self) -> Vec<f32> {
-        use std::sync::TryLockError;
-        use std::thread;
-        use std::time::{Duration, Instant};
-
-        let started = Instant::now();
-        loop {
-            match self.state.try_lock() {
-                Ok(mut state) => {
-                    eprintln!(
-                        "[audio-paste][audio] take_audio_buffer acquired lock after {}ms",
-                        started.elapsed().as_millis()
-                    );
-                    return std::mem::take(&mut state.audio_buffer);
-                }
-                Err(TryLockError::WouldBlock) => {
-                    if started.elapsed() > Duration::from_secs(5) {
-                        eprintln!(
-                            "[audio-paste][audio] take_audio_buffer timed out after {}ms",
-                            started.elapsed().as_millis()
-                        );
-                        return Vec::new();
-                    }
-                    thread::sleep(Duration::from_millis(10));
-                }
-                Err(TryLockError::Poisoned(e)) => {
-                    eprintln!("[audio-paste][audio] take_audio_buffer lock poisoned: {}", e);
-                    return Vec::new();
-                }
-            }
-        }
+        let mut state = self.state.lock().unwrap_or_else(|poisoned| {
+            eprintln!("[audio-paste][audio] take_audio_buffer lock poisoned; recovering");
+            poisoned.into_inner()
+        });
+        std::mem::take(&mut state.audio_buffer)
     }
 
     pub fn trim_silence(audio: &[f32], threshold: f32) -> Vec<f32> {

@@ -1,7 +1,5 @@
-use std::sync::{RwLock, TryLockError};
-use std::thread;
+use std::sync::RwLock;
 use std::time::Instant;
-use std::time::Duration;
 use tauri::{State, Emitter};
 use crate::config::env::GLOBAL_CONFIG;
 use crate::config::whisper_config::WhisperConfig;
@@ -34,28 +32,13 @@ pub fn stop_recording(state: State<'_, AppState>) -> Result<(), String> {
 pub fn process_transcription(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<String, String> {
     eprintln!("[audio-paste][pipeline] process_transcription start");
 
-    let config = {
-        let started = Instant::now();
-        loop {
-            match state.inner().whisper_config.try_read() {
-                Ok(guard) => {
-                    let snapshot = guard
-                        .clone()
-                        .ok_or("No Whisper Config loaded. Apply configuration first.")?;
-                    break snapshot;
-                }
-                Err(TryLockError::WouldBlock) => {
-                    if started.elapsed() > Duration::from_secs(5) {
-                        return Err("Timed out waiting for whisper config snapshot".to_string());
-                    }
-                    thread::sleep(Duration::from_millis(10));
-                }
-                Err(TryLockError::Poisoned(e)) => {
-                    return Err(format!("Config lock error: {}", e));
-                }
-            }
-        }
-    };
+    let config = state
+        .inner()
+        .whisper_config
+        .read()
+        .map_err(|e| format!("Config lock error: {}", e))?
+        .clone()
+        .ok_or("No Whisper Config loaded. Apply configuration first.")?;
 
     let audio_data = state.inner().audio_service.take_audio_buffer();
     eprintln!(
@@ -138,10 +121,8 @@ fn run_transcription_job(
             }
 
             eprintln!("[audio-paste][pipeline] attempting tiny fallback after model failure");
-            let root = WhisperConfig::resolve_project_root()?;
             let tiny_config = WhisperConfig::new(
                 &app,
-                root,
                 crate::constants::config::WHISPER_DEFAULT_MODEL,
                 config.cpu_threads,
                 config.sample_rate,
@@ -201,10 +182,8 @@ pub fn apply_config(
         model, device, threads, silence_threshold, silence_seconds
     );
     let _ = app.emit("status_change", "LOADING");
-    let root = WhisperConfig::resolve_project_root()?;
     let config = WhisperConfig::new(
         &app,
-        root,
         &model,
         threads,
         GLOBAL_CONFIG.sample_rate,

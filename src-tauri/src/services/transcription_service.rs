@@ -95,7 +95,8 @@ fn run_whisper_cli(config: &WhisperConfig, wav_path: &str) -> Result<TimedOutput
     );
 
     let t0 = Instant::now();
-    let mut child = Command::new(&config.cli_path)
+    let mut command = Command::new(&config.cli_path);
+    command
         .arg("-m").arg(&config.model_file_path)
         .arg("-f").arg(wav_path)
         .arg("-t").arg(config.cpu_threads.to_string())
@@ -103,7 +104,21 @@ fn run_whisper_cli(config: &WhisperConfig, wav_path: &str) -> Result<TimedOutput
         .arg("-l").arg("en")
         .arg("-np")
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    #[cfg(target_os = "linux")]
+    if let Some(cli_dir) = config.cli_path.parent() {
+        let mut ld_library_path = cli_dir.to_string_lossy().to_string();
+        if let Some(existing) = std::env::var_os("LD_LIBRARY_PATH") {
+            if !existing.is_empty() {
+                ld_library_path.push(':');
+                ld_library_path.push_str(&existing.to_string_lossy());
+            }
+        }
+        command.env("LD_LIBRARY_PATH", ld_library_path);
+    }
+
+    let mut child = command
         .spawn()
         .map_err(|e| format!("Failed to execute whisper-cli at {:?}: {}", config.cli_path, e))?;
 

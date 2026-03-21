@@ -52,6 +52,8 @@ flowchart LR
     TRANS[TranscriptionService]
     CLIP[ClipboardService]
     CONF[WhisperConfig]
+    ASSETS[Staged Whisper Assets\n~/.local/share/audio-paste/whisper]
+    MODELS[Model Cache\n~/.local/share/audio-paste/whisper/models]
   end
 
   LIB --> AUDIO
@@ -63,8 +65,10 @@ flowchart LR
   AUDIO -->|silence_detected event| FE
   FE -->|process_transcription| CMD
 
-  TRANS -->|run whisper-cli| WCLI[whisper.cpp / whisper-cli]
-  CONF -->|ensure model exists\nauto-download if missing| MODELS[ggml models]
+  CONF -->|resolve/stage whisper-cli + runtime libs| ASSETS
+  CONF -->|ensure model exists\nauto-download if missing| MODELS
+  TRANS -->|spawn whisper-cli with LD_LIBRARY_PATH=assets dir| ASSETS
+  ASSETS -->|exec| WCLI[whisper-cli]
 
   CMD -->|transcription_result + status_change| FE
   CLIP --> OS[OS Clipboard / Key Injection]
@@ -78,8 +82,13 @@ sequenceDiagram
   participant UI as Frontend (AppController)
   participant Tauri as Rust Commands
   participant Audio as AudioService
+  participant Config as WhisperConfig
   participant Whisper as whisper-cli
   participant Clip as ClipboardService
+
+  UI->>Tauri: apply_config(model, threads, silence...)
+  Tauri->>Config: resolve/stage whisper-cli + runtime libs
+  Config->>Config: ensure model exists (download if missing)
 
   User->>UI: Start (click or Ctrl+Alt+R)
   UI->>Tauri: start_recording
@@ -98,9 +107,9 @@ sequenceDiagram
     UI->>Tauri: process_transcription
   end
 
-  Tauri->>Audio: get_and_clear_audio()
+  Tauri->>Audio: take_audio_buffer() (Mutex lock + mem::take)
   Tauri->>Tauri: trim silence + write temp wav
-  Tauri->>Whisper: whisper-cli -m <model> -f <wav>
+  Tauri->>Whisper: whisper-cli -m <model> -f <wav> (with LD_LIBRARY_PATH)
   Whisper-->>Tauri: transcript text
 
   alt Transcript not empty
