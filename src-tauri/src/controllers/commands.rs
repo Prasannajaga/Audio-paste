@@ -1,12 +1,14 @@
-use std::sync::RwLock;
+use std::sync::{RwLock, TryLockError};
+use std::thread;
 use std::time::Instant;
+use std::time::Duration;
 use tauri::{State, Emitter};
 use crate::config::env::GLOBAL_CONFIG;
 use crate::config::whisper_config::WhisperConfig;
 use crate::services::audio_service::AudioService;
 use crate::services::transcription_service;
 use crate::services::clipboard_service;
-
+ 
 pub struct AppState {
     pub audio_service: AudioService,
     pub whisper_config: RwLock<Option<WhisperConfig>>,
@@ -33,14 +35,26 @@ pub fn process_transcription(app: tauri::AppHandle, state: State<'_, AppState>) 
     eprintln!("[audio-paste][pipeline] process_transcription start");
 
     let config = {
-        let guard = state
-            .inner()
-            .whisper_config
-            .read()
-            .map_err(|e| format!("Config lock error: {}", e))?;
-        guard
-            .clone()
-            .ok_or("No Whisper Config loaded. Apply configuration first.")?
+        let started = Instant::now();
+        loop {
+            match state.inner().whisper_config.try_read() {
+                Ok(guard) => {
+                    let snapshot = guard
+                        .clone()
+                        .ok_or("No Whisper Config loaded. Apply configuration first.")?;
+                    break snapshot;
+                }
+                Err(TryLockError::WouldBlock) => {
+                    if started.elapsed() > Duration::from_secs(5) {
+                        return Err("Timed out waiting for whisper config snapshot".to_string());
+                    }
+                    thread::sleep(Duration::from_millis(10));
+                }
+                Err(TryLockError::Poisoned(e)) => {
+                    return Err(format!("Config lock error: {}", e));
+                }
+            }
+        }
     };
 
     let audio_data = state.inner().audio_service.take_audio_buffer();
