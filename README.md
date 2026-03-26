@@ -12,13 +12,6 @@ You press a hotkey (or click), speak, and the app transcribes locally with `whis
 - Copies transcript to clipboard and tries auto-paste (`Ctrl+V` / `Cmd+V`)
 - Supports Linux, macOS, and Windows (with OS-specific hotkey/paste paths)
 
-## Tech Stack
-
-- Frontend: Vanilla TypeScript + Vite
-- Desktop runtime: Tauri v2
-- Backend: Rust
-- Speech engine: `whisper.cpp` (`whisper-cli` binary)
-
 ## Project Structure
 
 - `src/`: frontend UI/controller/api
