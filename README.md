@@ -6,7 +6,10 @@ You press a hotkey (or click), speak, and the app transcribes locally with `whis
 
 ## Demo
 
-<video src="media.mp4" width="100%" controls></video>
+<video width="600" controls>
+  <source src="media.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
 
 ## What It Does
 
