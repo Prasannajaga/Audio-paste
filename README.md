@@ -4,6 +4,10 @@ Offline voice-to-text desktop app built with **Tauri + Rust + Vanilla TypeScript
 
 You press a hotkey (or click), speak, and the app transcribes locally with `whisper.cpp` and pastes the text into the focused app.
 
+## Demo
+
+<video src="media.mp4" width="100%" controls></video>
+
 ## What It Does
 
 - Captures microphone audio at 16kHz
