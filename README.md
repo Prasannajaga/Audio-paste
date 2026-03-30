@@ -4,12 +4,10 @@ Offline voice-to-text desktop app built with **Tauri + Rust + React**.
 
 You press a hotkey (or click), speak, and the app transcribes locally with `whisper.cpp` and pastes the text into the focused app.
 
-## Demo
+## Demo 
 
-<video width="600" controls>
-  <source src="media.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+[![Watch Video](thumbnail.png)]([https://github.com/<username>/<repo>/blob/main/video.mp4](https://github.com/Prasannajaga/Audio-paste/blob/main/media.mp4
+))
 
 ## What It Does
 
