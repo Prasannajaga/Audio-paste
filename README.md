@@ -6,7 +6,7 @@ You press a hotkey (or click), speak, and the app transcribes locally with `whis
 
 ## Demo 
 
-[![Watch Video](thumbnail.png)]([https://github.com/<username>/<repo>/blob/main/video.mp4](https://github.com/Prasannajaga/Audio-paste/blob/main/media.mp4
+[![Watch Video](media.mp4)]([https://github.com/<username>/<repo>/blob/main/video.mp4](https://github.com/Prasannajaga/Audio-paste/blob/main/media.mp4
 ))
 
 ## What It Does
