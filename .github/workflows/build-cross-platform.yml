@@ -44,6 +44,15 @@ jobs:
             patchelf \
             cmake
 
+      - name: Ensure whisper.cpp source
+        shell: bash
+        run: |
+          if [ -d src-tauri/whisper.cpp ]; then
+            echo "Using checked-in src-tauri/whisper.cpp"
+          else
+            git clone --depth 1 --branch v1.8.4 https://github.com/ggerganov/whisper.cpp src-tauri/whisper.cpp
+          fi
+
       - name: Install npm dependencies
         run: npm ci
 
