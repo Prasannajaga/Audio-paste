@@ -15,7 +15,6 @@ jobs:
         os:
           - ubuntu-22.04
           - windows-latest
-          - macos-latest
 
     runs-on: ${{ matrix.os }}
 
@@ -47,9 +46,10 @@ jobs:
       - name: Ensure whisper.cpp source
         shell: bash
         run: |
-          if [ -d src-tauri/whisper.cpp ]; then
+          if [ -f src-tauri/whisper.cpp/CMakeLists.txt ]; then
             echo "Using checked-in src-tauri/whisper.cpp"
           else
+            rm -rf src-tauri/whisper.cpp
             git clone --depth 1 --branch v1.8.4 https://github.com/ggerganov/whisper.cpp src-tauri/whisper.cpp
           fi
 
@@ -57,6 +57,7 @@ jobs:
         run: npm ci
 
       - name: Build whisper.cpp
+        shell: bash
         run: |
           cmake -S src-tauri/whisper.cpp -B src-tauri/whisper.cpp/build -DCMAKE_BUILD_TYPE=Release
           cmake --build src-tauri/whisper.cpp/build --config Release --parallel
@@ -65,19 +66,36 @@ jobs:
         shell: bash
         run: |
           mkdir -p src-tauri/whisper.cpp/build/bin
+          TARGET_PATH="src-tauri/whisper.cpp/build/bin/whisper-cli"
           BIN_PATH="$(find src-tauri/whisper.cpp/build -type f \( -name 'whisper-cli' -o -name 'whisper-cli.exe' \) | head -n 1)"
           if [ -z "$BIN_PATH" ]; then
             echo "Could not find whisper-cli binary"
+            find src-tauri/whisper.cpp/build -maxdepth 5 -type f | sed -n '1,200p'
             exit 1
           fi
-          cp "$BIN_PATH" src-tauri/whisper.cpp/build/bin/whisper-cli
-          chmod +x src-tauri/whisper.cpp/build/bin/whisper-cli || true
+
+          BIN_REAL="$(cd "$(dirname "$BIN_PATH")" && pwd)/$(basename "$BIN_PATH")"
+          TARGET_REAL="$(cd "$(dirname "$TARGET_PATH")" && pwd)/$(basename "$TARGET_PATH")"
+
+          if [ "$BIN_REAL" != "$TARGET_REAL" ]; then
+            cp -f "$BIN_PATH" "$TARGET_PATH"
+          else
+            echo "whisper-cli already normalized at $TARGET_PATH"
+          fi
+
+          chmod +x "$TARGET_PATH" || true
+
+          if [[ "$BIN_PATH" == *.exe ]]; then
+            cp -f "$BIN_PATH" src-tauri/whisper.cpp/build/bin/whisper-cli.exe || true
+          fi
 
       - name: Prepare OS-specific Tauri config
+        shell: bash
         run: |
-          node -e "const fs=require('fs'); const p='src-tauri/tauri.conf.json'; const os=process.env.RUNNER_OS; const c=JSON.parse(fs.readFileSync(p,'utf8')); c.bundle ??= {}; const base=['whisper.cpp/build/bin/whisper-cli']; if(os==='Linux'){ c.bundle.targets=['appimage','deb','rpm']; c.bundle.resources=[...base,'whisper.cpp/build/src/libwhisper.so.1','whisper.cpp/build/ggml/src/libggml.so.0','whisper.cpp/build/ggml/src/libggml-base.so.0','whisper.cpp/build/ggml/src/libggml-cpu.so.0']; } else if (os==='Windows'){ c.bundle.targets=['nsis','msi']; c.bundle.resources=base; } else { c.bundle.targets=['app','dmg']; c.bundle.resources=base; } fs.writeFileSync(p, JSON.stringify(c,null,2));"
+          node -e "const fs=require('fs'); const path=require('path'); const p='src-tauri/tauri.conf.json'; const os=process.env.RUNNER_OS; const c=JSON.parse(fs.readFileSync(p,'utf8')); c.bundle ??= {}; const exists=(r)=>fs.existsSync(path.join('src-tauri', r)); const base=['whisper.cpp/build/bin/whisper-cli']; if(os==='Linux'){ c.bundle.targets=['deb']; const required=[['whisper.cpp/build/src/libwhisper.so.1','whisper.cpp/build/src/libwhisper.so'],['whisper.cpp/build/ggml/src/libggml.so.0','whisper.cpp/build/ggml/src/libggml.so'],['whisper.cpp/build/ggml/src/libggml-base.so.0','whisper.cpp/build/ggml/src/libggml-base.so'],['whisper.cpp/build/ggml/src/libggml-cpu.so.0','whisper.cpp/build/ggml/src/libggml-cpu.so']]; const libs=required.map((opts)=>opts.find(exists)).filter(Boolean); if(libs.length!==required.length){ console.error('Missing Linux runtime libs. Resolved:', libs); process.exit(1); } c.bundle.resources=[...base,...libs]; } else if (os==='Windows'){ c.bundle.targets=['nsis']; c.bundle.resources=base; } else { c.bundle.targets=['app']; c.bundle.resources=base; } fs.writeFileSync(p, JSON.stringify(c,null,2));"
 
       - name: Build Tauri app
+        shell: bash
         run: npx tauri build
 
       - name: Upload bundles
