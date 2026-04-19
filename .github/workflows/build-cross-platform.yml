@@ -65,41 +65,48 @@ jobs:
           cmake -S src-tauri/whisper.cpp -B src-tauri/whisper.cpp/build -DCMAKE_BUILD_TYPE=Release
           cmake --build src-tauri/whisper.cpp/build --config Release --parallel
 
-      - name: Normalize whisper-cli path
+      - name: Normalize whisper runtime assets
         shell: bash
         run: |
           mkdir -p src-tauri/whisper.cpp/build/bin
-          TARGET_PATH="src-tauri/whisper.cpp/build/bin/whisper-cli"
-          BIN_PATH="$(find src-tauri/whisper.cpp/build -type f \( -name 'whisper-cli' -o -name 'whisper-cli.exe' \) | head -n 1)"
-          if [ -z "$BIN_PATH" ]; then
-            echo "Could not find whisper-cli binary"
-            find src-tauri/whisper.cpp/build -maxdepth 5 -type f | sed -n '1,200p'
-            exit 1
-          fi
 
-          BIN_REAL="$(cd "$(dirname "$BIN_PATH")" && pwd)/$(basename "$BIN_PATH")"
-          TARGET_REAL="$(cd "$(dirname "$TARGET_PATH")" && pwd)/$(basename "$TARGET_PATH")"
+          normalize_asset() {
+            local source_name="$1"
+            local target_path="$2"
+            local source_path
 
-          if [ "$BIN_REAL" != "$TARGET_REAL" ]; then
-            cp -f "$BIN_PATH" "$TARGET_PATH"
+            source_path="$(find src-tauri/whisper.cpp/build -type f -name "$source_name" | head -n 1)"
+            if [ -z "$source_path" ]; then
+              echo "Could not find required asset: $source_name"
+              find src-tauri/whisper.cpp/build -maxdepth 5 -type f | sed -n '1,200p'
+              exit 1
+            fi
+
+            local source_real
+            local target_real
+            source_real="$(cd "$(dirname "$source_path")" && pwd)/$(basename "$source_path")"
+            target_real="$(cd "$(dirname "$target_path")" && pwd)/$(basename "$target_path")"
+
+            if [ "$source_real" != "$target_real" ]; then
+              cp -f "$source_path" "$target_path"
+            else
+              echo "Asset already normalized at $target_path"
+            fi
+          }
+
+          if [ "${RUNNER_OS}" = "Windows" ]; then
+            normalize_asset "whisper-cli.exe" "src-tauri/whisper.cpp/build/bin/whisper-cli.exe"
+            for dll in whisper.dll ggml.dll ggml-base.dll ggml-cpu.dll; do
+              normalize_asset "$dll" "src-tauri/whisper.cpp/build/bin/$dll"
+            done
           else
-            echo "whisper-cli already normalized at $TARGET_PATH"
+            normalize_asset "whisper-cli" "src-tauri/whisper.cpp/build/bin/whisper-cli"
+            chmod +x src-tauri/whisper.cpp/build/bin/whisper-cli || true
           fi
-
-          chmod +x "$TARGET_PATH" || true
-
-          if [[ "$BIN_PATH" == *.exe ]]; then
-            cp -f "$BIN_PATH" src-tauri/whisper.cpp/build/bin/whisper-cli.exe || true
-          fi
-
-      - name: Prepare OS-specific Tauri config
-        shell: bash
-        run: |
-          node -e "const fs=require('fs'); const path=require('path'); const p='src-tauri/tauri.conf.json'; const os=process.env.RUNNER_OS; const c=JSON.parse(fs.readFileSync(p,'utf8')); c.bundle ??= {}; const exists=(r)=>fs.existsSync(path.join('src-tauri', r)); const base=['whisper.cpp/build/bin/whisper-cli']; if(os==='Linux'){ c.bundle.targets=['deb']; const required=[['whisper.cpp/build/src/libwhisper.so.1','whisper.cpp/build/src/libwhisper.so'],['whisper.cpp/build/ggml/src/libggml.so.0','whisper.cpp/build/ggml/src/libggml.so'],['whisper.cpp/build/ggml/src/libggml-base.so.0','whisper.cpp/build/ggml/src/libggml-base.so'],['whisper.cpp/build/ggml/src/libggml-cpu.so.0','whisper.cpp/build/ggml/src/libggml-cpu.so']]; const libs=required.map((opts)=>opts.find(exists)).filter(Boolean); if(libs.length!==required.length){ console.error('Missing Linux runtime libs. Resolved:', libs); process.exit(1); } c.bundle.resources=[...base,...libs]; } else if (os==='Windows'){ c.bundle.targets=['nsis']; c.bundle.resources=base; } else { c.bundle.targets=['app']; c.bundle.resources=base; } fs.writeFileSync(p, JSON.stringify(c,null,2));"
 
       - name: Build Tauri app
         shell: bash
-        run: npx tauri build
+        run: PREPARE_TAURI_TARGET_OS="${RUNNER_OS}" npm run tauri:build
 
       - name: Upload bundles
         uses: actions/upload-artifact@v6

@@ -68,6 +68,13 @@ impl WhisperConfig {
     }
 
     fn find_cli_on_path() -> Option<PathBuf> {
+        #[cfg(target_os = "windows")]
+        let output = Command::new("where")
+            .arg("whisper-cli")
+            .output()
+            .ok()?;
+
+        #[cfg(not(target_os = "windows"))]
         let output = Command::new("sh")
             .arg("-lc")
             .arg("command -v whisper-cli")
@@ -78,18 +85,18 @@ impl WhisperConfig {
             return None;
         }
 
-        let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if path.is_empty() {
-            None
-        } else {
-            Some(PathBuf::from(path))
-        }
+        String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .map(str::trim)
+            .find(|line| !line.is_empty())
+            .map(PathBuf::from)
     }
 
     fn local_cli_path(project_root: &Path) -> PathBuf {
         project_root.join("whisper.cpp").join("build").join("bin").join(config::WHISPER_CLI_BINARY_NAME)
     }
 
+    #[cfg(target_os = "linux")]
     fn installed_cli_path() -> Result<PathBuf, String> {
         let exe = std::env::current_exe()
             .map_err(|e| format!("Failed to get executable path: {}", e))?;
@@ -103,6 +110,27 @@ impl WhisperConfig {
         path.push("bin");
         path.push(config::WHISPER_CLI_BINARY_NAME);
         Ok(path)
+    }
+
+    #[cfg(target_os = "windows")]
+    fn installed_cli_path() -> Result<PathBuf, String> {
+        let exe = std::env::current_exe()
+            .map_err(|e| format!("Failed to get executable path: {}", e))?;
+        let exe_dir = exe.parent().ok_or("Failed to resolve executable directory")?;
+        Ok(exe_dir
+            .join("resources")
+            .join("whisper.cpp")
+            .join("build")
+            .join("bin")
+            .join(config::WHISPER_CLI_BINARY_NAME))
+    }
+
+    #[cfg(all(not(target_os = "linux"), not(target_os = "windows")))]
+    fn installed_cli_path() -> Result<PathBuf, String> {
+        let exe = std::env::current_exe()
+            .map_err(|e| format!("Failed to get executable path: {}", e))?;
+        let exe_dir = exe.parent().ok_or("Failed to resolve executable directory")?;
+        Ok(exe_dir.join(config::WHISPER_CLI_BINARY_NAME))
     }
 
     fn ensure_executable(path: &Path) -> Result<(), String> {
@@ -137,7 +165,17 @@ impl WhisperConfig {
         ]
     }
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_os = "windows")]
+    fn runtime_library_names() -> &'static [&'static str] {
+        &[
+            "whisper.dll",
+            "ggml.dll",
+            "ggml-base.dll",
+            "ggml-cpu.dll",
+        ]
+    }
+
+    #[cfg(all(not(target_os = "linux"), not(target_os = "windows")))]
     fn runtime_library_names() -> &'static [&'static str] {
         &[]
     }
@@ -192,7 +230,37 @@ impl WhisperConfig {
         Ok(())
     }
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_os = "windows")]
+    fn stage_runtime_libraries(source_cli: &Path, staged_cli: &Path) -> Result<(), String> {
+        let source_dir = source_cli
+            .parent()
+            .ok_or_else(|| format!("Failed to resolve parent directory for {:?}", source_cli))?;
+        let staged_dir = staged_cli
+            .parent()
+            .ok_or_else(|| format!("Failed to resolve staged dir for {:?}", staged_cli))?;
+
+        for lib_name in Self::runtime_library_names() {
+            let source = source_dir.join(lib_name);
+            if !source.is_file() {
+                return Err(format!(
+                    "Required runtime library {:?} not found next to whisper-cli source at {:?}",
+                    lib_name, source
+                ));
+            }
+
+            let target = staged_dir.join(lib_name);
+            std::fs::copy(&source, &target).map_err(|e| {
+                format!(
+                    "Failed to stage runtime library {:?} from {:?} to {:?}: {}",
+                    lib_name, source, target, e
+                )
+            })?;
+        }
+
+        Ok(())
+    }
+
+    #[cfg(all(not(target_os = "linux"), not(target_os = "windows")))]
     fn stage_runtime_libraries(_source_cli: &Path, _staged_cli: &Path) -> Result<(), String> {
         Ok(())
     }
@@ -219,7 +287,10 @@ impl WhisperConfig {
 
         let resource_names = [
             "whisper-cli",
+            "whisper-cli.exe",
             "whisper.cpp/build/bin/whisper-cli",
+            "whisper.cpp/build/bin/whisper-cli.exe",
+            config::WHISPER_CLI_BINARY_NAME,
         ];
         for name in resource_names {
             if let Ok(path) = app.path().resolve(name, tauri::path::BaseDirectory::Resource) {
@@ -229,6 +300,7 @@ impl WhisperConfig {
 
         if let Ok(resource_dir) = app.path().resource_dir() {
             candidates.push(resource_dir.join("whisper-cli"));
+            candidates.push(resource_dir.join("whisper-cli.exe"));
             candidates.push(
                 resource_dir
                     .join("whisper.cpp")

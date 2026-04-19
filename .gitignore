@@ -33,6 +33,7 @@ whisper.cpp/models/*.bin
 
 # Tauri build output
 src-tauri/target/
+src-tauri/tauri.generated.conf.json
 
 # Python
 .venv/
